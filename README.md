@@ -1,6 +1,4 @@
-
 # Credit Fraud Detection
-
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
@@ -219,19 +217,85 @@ Planned additions:
 * `requirements.txt` – Dependency list.
 * `LICENSE` – License file.
 
+
+## Notebooks
+
+The repository includes two Jupyter notebooks for detailed analysis and modeling. Below are their sections with comments explaining their functionality.
+
+### 1.EDA.ipynb
+
+This notebook performs exploratory data analysis to understand the dataset's characteristics and identify patterns relevant to fraud detection.
+
+* **Data Loading and Initial Inspection** :
+* Loads **train.csv** using **pandas**.
+* Displays dataset info, shape, summary statistics, and checks for missing values.
+* Examines class distribution to highlight imbalance (99.83% legitimate, 0.17% fraud).
+* **Transaction Amount Analysis** :
+* Generates histograms for **Amount** and **log_amount** for both classes (Normal: Class 0, Fraud: Class 1).
+* Fits normal distributions to visualize differences in distribution shapes.
+* Computes skewness for **Amount** and **log_amount** to assess asymmetry.
+* Identifies extreme values (e.g., transactions < 5.6375 or > 77.65 for all, < 1 or > 111.7 for fraud, < 5.68 or > 77.5 for normal).
+* Key findings: Fraud transactions are concentrated at lower amounts, with **log_amount** reducing skewness for better model compatibility.
+* **Hourly Transaction Patterns** :
+* Derives **Hour** from **Time** and plots histograms to compare transaction distributions by hour.
+* Observations: Fraud transactions peak at hours 0-2 and 10-11 (density ~0.12 at hour 1), while normal transactions peak at hours 9-10 and 18-20.
+* **Correlation Analysis** :
+* Computes correlation matrix for all features and visualizes using a heatmap.
+* Key correlations with **Class**: Positive (e.g., V11: 0.22, V12: 0.16), negative (e.g., V18: -0.33, V15: -0.30).
+* Correlations with **Hour**: Positive (e.g., V12: 0.35), negative (e.g., V20: -0.33).
+* Insights: Certain V-features (e.g., V11, V18) are key predictors; **Time**, **Amount**, and **Hour** have minimal direct correlation with fraud.
+* **Feature Distribution Visualization** :
+* Plots histograms and boxplots for all features, comparing Normal and Fraud classes.
+* Visualizes scatter plots of features vs. **Amount** to identify class-specific patterns.
+* Observations: Fraud transactions form tight clusters in certain V-features (e.g., V11, V15) and lower amounts, while normal transactions show greater variability.
+* **Feature Engineering Exploration** :
+* Applies feature engineering (e.g., **is_rush_hour**, **log_amount**, **amount_bin**, V-feature outliers, interaction features).
+* Visualizes correlations of engineered features (e.g., **amount_hour_interaction**, **V7_amount**) with **Class**.
+* Plots scatter plots for **amount_z_scores**, **is_outlier_amount**, and **amount_bin** to assess their distribution.
+* **Feature Importance with XGBoost** :
+* Trains an XGBoost model to compute feature importance (using **scale_pos_weight** for imbalance).
+* Visualizes top features (e.g., V11, V12, V7) to guide feature selection.
+* **t-SNE Visualization** :
+* Applies t-SNE to reduce features to 2D and visualizes class separation.
+* Insight: Fraud and normal transactions show some clustering, indicating potential for classification models.
+
+### 2.Modeling.ipynb
+
+This notebook implements feature engineering, model training, and evaluation on train, validation, and test sets.
+
+* **Data Loading and Feature Engineering** :
+* Loads **train.csv**, **val.csv**, and **test.csv**.
+* Applies feature engineering using **apply_feature_engineering** from **credit_fraud_utils_data.py**:
+  * Computes **Hour**, **is_rush_hour**, **log_amount**, **is_outlier_amount**, **amount_bin**, V-feature outliers, and interaction features.
+  * Uses training statistics (**train_stats**) for consistent transformations across datasets.
+* Defines feature categories: categorical (**amount_bin**), binary (**is_outlier_amount**, **is_rush_hour**, etc.), cyclical (**Hour**), numerical (interaction features), and V-features.
+* **Preprocessing Pipeline** :
+* Builds an **imblearn.pipeline** with:
+  * **ColumnTransformer** for **StandardScaler** (numerical features), **OrdinalEncoder** (**amount_bin**), and **CyclicalFeatures** (**Hour**).
+  * SMOTE (oversampling) and RandomUnderSampler (undersampling) to address class imbalance.
+* Checks class balance after resampling to ensure balanced training data.
+* **Model Training** :
+* Trains a Logistic Regression model with optional class weights based on imbalance ratio.
+* Fits the model on preprocessed training data.
+* Note: Pipeline is set up to support XGBoost and Random Forest (commented out).
+* **Model Evaluation** :
+* Evaluates on train, validation, and test sets using **predict** and **predict_proba**.
+* Computes confusion matrices and classification reports (Precision, Recall, F1-score).
+* Insight: Performance metrics highlight model effectiveness on imbalanced data, with emphasis on Recall for fraud detection.
+
 ## Contributing
 
-1. Fork the repo and create a feature branch (`git checkout -b feature/amazing-feature`).
-2. Commit changes (`git commit -m 'Add amazing feature'`).
-3. Push to branch (`git push origin feature/amazing-feature`).
+1. Fork the repo and create a feature branch (**git checkout -b feature/amazing-feature**).
+2. Commit changes (**git commit -m 'Add amazing feature'**).
+3. Push to branch (**git push origin feature/amazing-feature**).
 4. Open a Pull Request.
 
 Issues and PRs welcome! Focus on adding utility scripts, improving model robustness (e.g., hyperparameter tuning), or new techniques (e.g., SHAP explanations).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://grok.com/project/LICENSE) file for details (to be added).
+This project is licensed under the MIT License - see the LICENSE file for details (to be added).
 
 ---
 
-*Built with ❤️ by [Mhammed Helal](https://github.com/Mhammedhelal). Last updated: September 19, 2025.*
+*Built with ❤️ by Mhammed Helal. Last updated: September 19, 2025.*
