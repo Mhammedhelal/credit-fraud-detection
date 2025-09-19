@@ -1,8 +1,18 @@
 
 # Credit Fraud Detection
 
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+
+[![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=flat&logo=numpy&logoColor=white)](https://numpy.org/)
+[![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=flat&logo=pandas&logoColor=white)](https://pandas.pydata.org/)
+[![Scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=flat&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![Imbalanced-learn](https://img.shields.io/badge/imbalanced--learn-%234CAF50.svg?style=flat)](https://imbalanced-learn.org/stable/)
+[![XGBoost](https://img.shields.io/badge/xgboost-%23FF6600.svg?style=flat)](https://xgboost.readthedocs.io/)
+[![Joblib](https://img.shields.io/badge/joblib-%230072C6.svg?style=flat)](https://joblib.readthedocs.io/)
+[![Matplotlib](https://img.shields.io/badge/matplotlib-%23ffffff.svg?style=flat&logo=plotly&logoColor=black)](https://matplotlib.org/)
+[![Seaborn](https://img.shields.io/badge/seaborn-%232E5E82.svg?style=flat)](https://seaborn.pydata.org/)
 
 A machine learning project to detect fraudulent credit card transactions using anonymized transaction data. This repository implements classification models with preprocessing and resampling techniques to handle imbalanced datasets, focusing on high precision and recall for fraud detection.
 
