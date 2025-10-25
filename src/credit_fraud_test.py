@@ -18,4 +18,4 @@ name = loaded_model_dict['model_name']
 
 data = pd.read_csv(args.dataset)
 data, _ = apply_feature_engineering(data, train_stats)
-eval_model(model, data, threshold=threshold)
+eval_model(model, data, threshold = threshold)

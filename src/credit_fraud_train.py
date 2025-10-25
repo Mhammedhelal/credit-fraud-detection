@@ -4,6 +4,7 @@ import joblib
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder
 from collections import Counter
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
@@ -16,7 +17,7 @@ from xgboost import XGBClassifier
 from credit_fraud_utils_data import *
 
 
-def train_model(train, model_name, use_oversample, use_undersample, logistic_class_weight):
+def train_model(train, model_name, use_oversample, use_undersample, logistic_class_weight, neighbors=None):
     # --- Features ---
     X = train.drop(columns=['Class','Amount'], axis=1)
     y = train['Class']
@@ -54,6 +55,8 @@ def train_model(train, model_name, use_oversample, use_undersample, logistic_cla
         model = XGBClassifier(random_state=42, eval_metric='logloss')
     elif model_name == 'randomforest':
         model = RandomForestClassifier(random_state=42)
+    elif model_name == 'knn':
+        model = KNeighborsClassifier(n_neighbors=neighbors)
     elif model_name == 'logistic':
         if logistic_class_weight:
             cnter = Counter(y)
@@ -114,12 +117,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='credit_fraud_train')
     parser.add_argument('--dataset', type=str, default='data/train.csv')
-    parser.add_argument('--model_name',type=str,default='voting', help='options: xgb, randomforest, logistic, voting')
+    parser.add_argument('--model_name',type=str,default='voting', help='options: xgb, randomforest, logistic, voting, knn')
     parser.add_argument('--model_save_name', type=str, default='models/voting.pkl')
     parser.add_argument('--use_oversample',type=bool,default=True)
     parser.add_argument('--use_undersample',type=bool,default=True)
     parser.add_argument('--logistic_class_weight',type=bool,default=False)
     parser.add_argument('--threshold',type=float,default=0.5)
+    parser.add_argument('--n_neighbors',type=int,default=None)
     args = parser.parse_args()
 
 
@@ -131,7 +135,7 @@ if __name__ == '__main__':
 
     # Train model
     model = train_model(train, model_name=args.model_name, use_oversample=args.use_oversample, 
-                        use_undersample=args.use_undersample, logistic_class_weight=args.logistic_class_weight)
+                        use_undersample=args.use_undersample, logistic_class_weight=args.logistic_class_weight, n_neighbors=args.n_neighbors)
     
     model_dict = {
         'model': model,
@@ -142,4 +146,3 @@ if __name__ == '__main__':
     save_path = args.model_save_name
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     joblib.dump(model_dict, save_path)
-
