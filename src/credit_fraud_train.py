@@ -17,7 +17,7 @@ from xgboost import XGBClassifier
 from credit_fraud_utils_data import *
 
 
-def train_model(train, model_name, use_oversample, use_undersample, logistic_class_weight, neighbors=None):
+def train_model(train, model_name, use_oversample, use_undersample, logistic_class_weight, n_neighbors=None):
     # --- Features ---
     X = train.drop(columns=['Class','Amount'], axis=1)
     y = train['Class']
@@ -56,7 +56,7 @@ def train_model(train, model_name, use_oversample, use_undersample, logistic_cla
     elif model_name == 'randomforest':
         model = RandomForestClassifier(random_state=42)
     elif model_name == 'knn':
-        model = KNeighborsClassifier(n_neighbors=neighbors)
+        model = KNeighborsClassifier(n_neighbors=n_neighbors)
     elif model_name == 'logistic':
         if logistic_class_weight:
             cnter = Counter(y)
