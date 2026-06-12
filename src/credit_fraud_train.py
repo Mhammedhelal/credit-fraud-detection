@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import os
 import argparse
 import joblib
@@ -16,28 +17,46 @@ from xgboost import XGBClassifier
 
 from credit_fraud_utils_data import *
 
+def _build_preprocessor(feature_meta):
+    cat_feat = feature_meta['cat_feat']
+    cyc_feat = feature_meta['cyc_feat']
+    num_feat = feature_meta['num_feat']
 
-def train_model(train, model_name, use_oversample, use_undersample, logistic_class_weight, n_neighbors=None):
-    # --- Features ---
-    X = train.drop(columns=['Class','Amount'], axis=1)
-    y = train['Class']
-
-    cat_feat = ['amount_bin']   
-    bin_feat = [
-        'V13_is_outlier','V15_is_outlier','V22_is_outlier',
-        'V23_is_outlier','V24_is_outlier','V26_is_outlier',
-        'is_outlier_amount','is_rush_hour'
-    ] 
-    cyc_feat = ['Hour']
-    v_feat = [f"V{i}" for i in range(1,29)]
-    num_feat = list(X.drop(columns=cat_feat+bin_feat+cyc_feat+v_feat, axis=1).columns)
-
-    # --- Preprocessor ---                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
     preprocessor = ColumnTransformer([
         ('oe', OrdinalEncoder(), cat_feat),
         ('scaler', StandardScaler(), num_feat),
         ('cyclical', CyclicalFeatures(cols=['Hour'], periods=[24]), cyc_feat)
     ], remainder='passthrough')
+
+    return preprocessor
+
+def train_model(train, models_names, model_weights, use_oversample, use_undersample,
+                logistic_class_weight, n_neighbors=None):
+    # --- Features ---
+    X = train.drop(columns=['Class','Amount'], axis=1)
+    y = train['Class']
+
+    feature_meta = {
+    "cat_feat": ['amount_bin'],
+    "bin_feat": [
+        'V13_is_outlier','V15_is_outlier','V22_is_outlier',
+        'V23_is_outlier','V24_is_outlier','V26_is_outlier',
+        'is_outlier_amount','is_rush_hour'
+    ],
+    "cyc_feat": ['Hour'],
+    "v_feat": [f"V{i}" for i in range(1,29)]
+    }
+    
+    used_features = (
+    feature_meta["cat_feat"]
+    + feature_meta["bin_feat"]
+    + feature_meta["cyc_feat"]
+    + feature_meta["v_feat"]
+    )
+
+    feature_meta["num_feat"] = [c for c in X.columns if c not in used_features]
+
+    preprocessor = _build_preprocessor(feature_meta)
 
     # --- Sampling ---
     steps = [('preprocessor', preprocessor)]
@@ -51,40 +70,49 @@ def train_model(train, model_name, use_oversample, use_undersample, logistic_cla
         steps.append(('under', undersample))
 
     # --- Choose Model ---
-    if model_name == 'xgb':
-        model = XGBClassifier(random_state=42, eval_metric='logloss')
-    elif model_name == 'randomforest':
-        model = RandomForestClassifier(random_state=42)
-    elif model_name == 'knn':
-        model = KNeighborsClassifier(n_neighbors=n_neighbors)
-    elif model_name == 'logistic':
-        if logistic_class_weight:
-            cnter = Counter(y)
-            ma = max(cnter[1], cnter[0])
-            mi = min(cnter[1], cnter[0])
-            ir = mi / ma
-            model = LogisticRegression(class_weight={0: ir, 1: 1}, random_state=42)
+    models = []
+    for model_name in models_names:
+        # Get name of the model and see if it is a name of a model class
+        if model_name == 'xgb':
+            model = XGBClassifier(random_state=42, eval_metric='logloss')
+        elif model_name == 'randomforest':
+            model = RandomForestClassifier(random_state=42)
+        elif model_name == 'knn':
+            model = KNeighborsClassifier(n_neighbors=n_neighbors)
+        elif model_name == 'logistic':
+            if logistic_class_weight:
+                cnter = Counter(y)
+                ma = max(cnter[1], cnter[0])
+                mi = min(cnter[1], cnter[0])
+                ir = mi / ma
+                model = LogisticRegression(class_weight={0: ir, 1: 1}, random_state=42)
+            else:
+                model = LogisticRegression(random_state=42)
         else:
-            model = LogisticRegression(random_state=42)
-    elif model_name == 'voting':
-        if logistic_class_weight:
-            cnter = Counter(y)
-            ma = max(cnter[1], cnter[0])
-            mi = min(cnter[1], cnter[0])
-            ir = mi / ma
-            log_reg = LogisticRegression(class_weight={0: ir, 1: 1}, random_state=42)
-        else:
-            log_reg = LogisticRegression(random_state=42)
-            
-        rf = RandomForestClassifier(random_state=42)
-        model = VotingClassifier(
-            estimators=[('lr', log_reg), ('rf', rf)],
-            voting='soft',  # soft = average of predicted probabilities
-            weights=[1,2]
-        )
+            continue
+        
+        models.append((model_name, model))
 
     # Add model to pipeline
-    steps.append(('model', model))
+    if len(models) == 1:
+        # Single model - no voting classifier
+        steps.append(('model', models[0][1]))
+    else:
+        if model_weights is not None:
+            if len(model_weights) != len(models):
+                raise ValueError(
+                    f"model_weights length {len(model_weights)} "
+                    f"does not match number of models {len(models)}"
+                )
+        else:
+            model_weights = [1] * len(models)
+        # Multiple models - use voting classifier
+        voting_model = VotingClassifier(
+            estimators=models,
+            voting='soft',
+            weights=model_weights
+        )
+        steps.append(('model', voting_model))
     
     # --- Pipeline ---
     pipeline = imb_Pipeline(steps=steps)
@@ -117,15 +145,21 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='credit_fraud_train')
     parser.add_argument('--dataset', type=str, default='data/train.csv')
-    parser.add_argument('--model_name',type=str,default='voting', help='options: xgb, randomforest, logistic, voting, knn')
-    parser.add_argument('--model_save_name', type=str, default='models/voting.pkl')
-    parser.add_argument('--use_oversample',type=bool,default=True)
-    parser.add_argument('--use_undersample',type=bool,default=True)
-    parser.add_argument('--logistic_class_weight',type=bool,default=False)
-    parser.add_argument('--threshold',type=float,default=0.5)
-    parser.add_argument('--n_neighbors',type=int,default=None)
+    parser.add_argument('--model_names', nargs='+', type=str, default=['logistic'], help='options: xgb, randomforest, logistic, knn')
+    parser.add_argument(
+    '--model_weights',
+    nargs='+',
+    type=float,
+    default=None,
+    help='weights for each model in same order as model_names'
+)
+    parser.add_argument('--model_save_name', type=str, default='models/model.pkl')
+    parser.add_argument('--use_oversample', type=bool, default=True)
+    parser.add_argument('--use_undersample', type=bool, default=True)
+    parser.add_argument('--logistic_class_weight', type=bool, default=False)
+    parser.add_argument('--threshold', type=float, default=0.5)
+    parser.add_argument('--n_neighbors', type=int, default=5)
     args = parser.parse_args()
-
 
     # Load data
     train = pd.read_csv(args.dataset)
@@ -134,14 +168,14 @@ if __name__ == '__main__':
     train, train_stats = apply_feature_engineering(train)
 
     # Train model
-    model = train_model(train, model_name=args.model_name, use_oversample=args.use_oversample, 
+    model = train_model(train, models_names=args.model_names, model_weights=args.model_weights, use_oversample=args.use_oversample, 
                         use_undersample=args.use_undersample, logistic_class_weight=args.logistic_class_weight, n_neighbors=args.n_neighbors)
     
     model_dict = {
         'model': model,
         'threshold': args.threshold,
         'train_stats': train_stats,
-        'model_name': args.model_name
+        'model_names': args.model_names
     }
     save_path = args.model_save_name
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
